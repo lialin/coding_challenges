@@ -1,7 +1,7 @@
 # coding_challenges
 
 
- solved problems in `.py, .sml, .lhs, and .java`
+ solved problems in `.py, .lhs, and .java`
 
 ------
 
