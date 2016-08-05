@@ -1,0 +1,25 @@
+# Author: %AUTHOR%
+# Email: %EMAIL%
+# Date: %DATE%
+-module(solution).
+-export([main/0]).
+
+main() ->
+
+    { ok, [T]} = io:fread("", "~d"),
+    T_list = lists:seq(1,T),
+    lists:foreach( fun(T0) ->
+            { ok, [N,K]} = io:fread("", "~d~d"),
+            A = read_array(N,"~d")
+    end,T_list),
+    true.
+
+read_array(0,D) -> [];
+read_array(N,D) -> 
+   {ok, [X]} = io:fread("", D),
+   [X | read_array(N-1,D)].
+
+read_2darray(0,M,D) -> [];
+read_2darray(N,M,D) ->
+   Q=read_array(M,D),
+   [Q | read_2darray(N-1,M,D)].
