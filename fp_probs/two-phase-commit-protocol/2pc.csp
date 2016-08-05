@@ -1,0 +1,96 @@
+datatype Id = a | b | c | d
+
+datatype Message = invite | accept | reject | confirm | cancel
+
+channel commit, notCommit : Id
+
+channel message : Id . Id . Message
+
+Messages = {| message |}
+
+-- the coordinator to send invitation/confirmation/cancellation messages, 
+-- and receive replies from the clients 
+
+Coordinator =  
+ let
+   State(invited, accepted, rejected, confirmed, cancelled) = 
+     ([] p : diff({b,c,d}, invited) @ message.a.p.invite -> 
+	State(union(invited, {p}), accepted, rejected, confirmed, cancelled))
+     []
+     ([] p : invited @ message.p.a.accept -> 
+	State(invited, union(accepted, {p}), rejected, confirmed, cancelled))
+     []
+     ([] p : invited @ message.p.a.reject -> 
+	State(invited, accepted, union(rejected, {p}), confirmed, cancelled))
+     []
+     ((accepted == {b,c,d}) & ([] p : diff({b,c,d}, confirmed) @ message.a.p.confirm -> 
+	State(invited, accepted, rejected, union(confirmed, {p}), cancelled)))
+     []
+     ((rejected != {}) & ([] p : diff({b,c,d}, cancelled) @ message.a.p.cancel -> 
+	State(invited, accepted, rejected, confirmed, union(cancelled, {p}))))
+     []
+     ((confirmed == {b,c,d}) & commit.a -> STOP)
+     []
+     ((cancelled == {b,c,d}) & notCommit.a -> STOP)
+ within
+   State({}, {}, {}, {}, {})
+
+-- the clients to response the messages sent by the coordinator
+
+Client(p) = 
+ let
+   Ready = message.a.p.invite -> Reply
+
+   Reply = message.p.a.accept -> Wait 
+	   |~|
+	   message.p.a.reject -> Wait
+   
+   Wait = message.a.p.confirm -> commit.p -> STOP
+	  []
+	  message.a.p.cancel -> notCommit.p -> STOP
+ within
+   Ready
+
+Clients = ||| p : {b,c,d} @ Client(p)
+  
+-- Coordinator leaves Client B to the last to send out the confirmation or cancellation
+
+ClientBLast = 
+ let
+   State(recipients) = if (recipients == {c,d}) 
+		       then 
+			message.a.b?m:{confirm, cancel} -> STOP
+		       else
+			message.a?r:diff({c,d}, recipients)?m:{confirm,cancel} -> State(union(recipients,{r})) 
+ within
+   State({})
+
+-- The coordinator and clients can be composed together to describe the combined behaviour
+-- of the four notes.
+
+System = 
+	( Coordinator [|Messages|] Clients )
+	[| {| message.a.x.y | x <- {b,c,d}, y <- {confirm, cancel} |} |] ClientBLast
+
+-- The following refinement check that can be used to establish the final decision that is to commit 
+-- or not to commit when each note comes to different decisions
+
+Decide(x) = commit.x -> STOP |~| notCommit.x -> STOP
+
+Decisions = ||| x : Id @ Decide(x)
+
+assert Decisions [FD= System \ Messages
+
+
+-- The following refinement check using it that can be used to establish that every notes will reach 
+-- the same decision
+
+Consensus = 
+ let
+  Commit(P) = [] p : diff({a,b,c,d},P) @ commit.p -> Commit(union(P,{p}))
+
+  NotCommit(P) = [] p : diff({a,b,c,d},P) @ notCommit.p -> NotCommit(union(P,{p}))
+ within
+  Commit({}) |~| NotCommit({})
+
+assert Consensus [FD= System \ Messages

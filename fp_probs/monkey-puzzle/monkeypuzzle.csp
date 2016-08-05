@@ -1,0 +1,315 @@
+-- The Monkey Puzzle (Affenspiel)
+-- This is a sliding piece puzzle, the original of which looks like
+--
+-----------------
+--	|VVV|MMMMMMM|VVV|
+--	|VVV|MonkeyM|VVV|
+--	|VVV|MMMMMMM|VVV|
+--	|VVV|MMMMMMM|VVV|
+--	|VVV|MMMMMMM|VVV|
+--	-----------------
+--	|   |HHHHHHH|   |
+--	|   |HHHHHHH|   |
+--	-----------------
+--	|VVV|SSS|SSS|VVV|
+--	|VVV|SSS|SSS|VVV|
+--	|VVV|-------|VVV|
+--	|VVV|SSS|SSS|VVV|
+--	|VVV|SSS|SSS|VVV|
+--
+-----------------
+--	      Tail
+--
+--  Contents of original COPYRIGHT file:
+--> This game is copyrighted (c) 1995 by Holger Schemel.
+--> Besides this, you can do what you want with it. :)
+
+-- This means that each square of the board is in one of 10 states: it
+-- may be empty or occupied by one of the four sorts of piece in any one
+-- of the places on the piece (thus HR means the right-hand square of
+-- a horizontal piece, and MTL is the top-left square of the monkey.
+
+datatype SqStates = Empty | OneSq | HL| HR| VTop | VBot | MBL | MBR | MTL | MTR
+
+-- We can create the board of our choice by the following suggestive
+-- notation in which a list of lists draws a picture of the board.
+-- (All the lists must be equal length and the various corners of
+-- pieces correctly positioned relative to each other for the initialisation
+-- to make sense.
+
+-- Board1 is the standard board
+
+Board1 =
+<<VTop, MTL, MTR, VTop>,
+<VBot, MBL, MBR, VBot>,
+<Empty,HL, HR, Empty>,
+<VTop,OneSq,OneSq,VTop>,
+<VBot,OneSq,OneSq,VBot>>
+Board = Board1
+
+-- We can calculate the dimensions of the board as follows:
+
+Wd = #(head(Board))
+Ht = #Board
+X = {0..(Wd-1)}
+Y = {0..(Ht-1)}
+
+-- We define various channels to denote the movement of each
+-- type of piece in each of the four directions. The co-ordinates
+-- associated with a move is the place the bottom left hand corner
+-- of the piece is moving to. Thus the event MDown.1.0 represents
+-- the monkey moving to the square {(1,0),(1,1),(2,0),(2,1)} from
+-- above. This particular move involves six of the squares
+-- and all of these must agree on this move.
+
+channel OneRight,OneLeft,VLeft,VRight,HRight,HLeft,MLeft,MRight:X.Y
+channel OneUp,OneDown,VUp,VDown,HUp,HDown,MUp,MDown:X.Y
+
+channel done
+
+-- My file limits the individual squares to only performing "real
+-- moves". If you wanted to simplify their definitions and
+-- cut out the "OffBoardMoves" as in solitaire you would need to
+-- extend the types of the above channels.
+
+Sigma = {| OneRight,OneLeft,VLeft,VRight,HRight,HLeft,MLeft,MRight,OneUp,OneDown,VUp,VDown,HUp,HDown,MUp,MDown|}
+
+-- The following predicates allow us to decide whether (given the
+-- dimensions of the piece involved and the board dimensions)
+-- whether there is a move of a given piece in each direction to
+-- co-ordinates (i,j). They all include bas which simply
+-- says (i,j) must be on the board:
+
+bas(i,j) = i>=0 and i<=Wd-1 and j<=Ht-1 and j>=0
+ort(i,j) = (i>0) and bas(i,j)
+ol(i,j) = (i<Wd-1) and bas(i,j)
+ou(i,j) = (j>0) and bas(i,j)
+od(i,j) = (j<Ht-1) and bas(i,j)
+hd(i,j) = (j<Ht-1) and (i<Wd-1) and bas(i,j)
+hu(i,j) = (j>0) and (i<Wd-1) and bas(i,j)
+hl(i,j) = (i<Wd-2) and bas(i,j)
+hr(i,j) = (i<Wd-1) and (i>0) and bas(i,j)
+vr(i,j) = (j<Ht-1) and (i>0) and bas(i,j)
+vl(i,j) = (j<Ht-1) and (i<Wd-1) and bas(i,j)
+vd(i,j) = (j<Ht-2) and bas(i,j)
+vu(i,j) = (j>0) and (j<Ht-1) and bas(i,j)
+mu(i,j) = (j>0) and (j<Ht-1) and (i<Wd-1) and bas(i,j)
+md(i,j) = (j<Ht-2) and (i<Wd-1) and bas(i,j)
+ml(i,j) = (i<Wd-2) and (j<Ht-1) and bas(i,j)
+mr(i,j) = (i<Wd-1) and (i>0) and (j<Ht-1) and bas(i,j)
+
+-- The behaviour of a Square at co-ordinates (i,j)
+-- in each of its states is defined by the following clauses.
+-- There are most possible moves for an empty square, since
+-- it can admit any piece from any direction provided the
+-- move is legitimate for (i,j) (decided by the guard predicates)
+
+Square(i,j,Empty) = ort(i,j) & OneRight.i.j -> Square(i,j,OneSq)
+		[] ol(i,j) & OneLeft.i.j -> Square(i,j,OneSq)
+
+		-- vertical square left and right moves
+
+		[] vl(i,j) & VLeft.i.j -> Square(i,j,VBot)
+		[] vr(i,j) & VRight.i.j -> Square(i,j,VBot)
+		[] vl(i,j-1) & VLeft.i.j-1 -> Square(i,j,VTop)
+		[] vr(i,j-1) & VRight.i.j-1 -> Square(i,j,VTop)
+
+		-- horizontal square left and right moves
+
+		[] hl(i,j) & HLeft.i.j -> Square(i,j,HL)
+		[] hr(i,j) & HRight.i.j -> Square(i,j,HL)
+		[] hl(i-1,j) & HLeft.i-1.j -> Square(i,j,HR)
+		[] hr(i-1,j) & HRight.i-1.j -> Square(i,j,HR)
+
+		-- monkey square left and right moves
+		-- When the monkey square moves to the square {(1,1),(2,1),(1,0),(2,0)}, we signal the done event.
+
+		[] ml(i,j) & MLeft.i.j -> (if i==1 and j==0 then done -> STOP else Square(i,j,MBL))
+		[] mr(i,j) & MRight.i.j -> (if i==1 and j==0 then done -> STOP else Square(i,j,MBL))
+		[] ml(i,j-1) & MLeft.i.j-1 -> (if i==1 and j-1==1 then done -> STOP else Square(i,j,MTL))
+		[] mr(i,j-1) & MRight.i.j-1 -> (if i==1 and j-1==1 then done -> STOP else Square(i,j,MTL))
+		[] ml(i-1,j) & MLeft.i-1.j -> (if i-1==2 and j==0 then done -> STOP else Square(i,j,MBR))
+		[] mr(i-1,j) & MRight.i-1.j -> (if i-1==2 and j==0 then done -> STOP else Square(i,j,MBR))
+		[] ml(i-1,j-1) & MLeft.i-1.j-1 -> (if i-1==2 and j-1==1 then done -> STOP else Square(i,j,MTR))
+		[] mr(i-1,j-1) & MRight.i-1.j-1 -> (if i-1==2 and j-1==1 then done -> STOP else Square(i,j,MTR))
+
+		-- one square up and down moves
+
+		[] ou(i,j) & OneUp.i.j -> Square(i,j,OneSq)
+		[] od(i,j) & OneDown.i.j -> Square(i,j,OneSq)
+
+		-- vertical square up and down moves
+
+		[] vu(i,j) & VUp.i.j -> Square(i,j,VBot)
+		[] vd(i,j) & VDown.i.j -> Square(i,j,VBot)
+		[] vu(i,j-1) & VUp.i.j-1 -> Square(i,j,VTop)
+		[] vd(i,j-1) & VDown.i.j-1 -> Square(i,j,VTop)
+
+		-- horizontal square up and down moves
+
+		[] hu(i,j) & HUp.i.j -> Square(i,j,HL)
+		[] hd(i,j) & HDown.i.j -> Square(i,j,HL)
+		[] hu(i-1,j) & HUp.i-1.j -> Square(i,j,HR)
+		[] hd(i-1,j) & HDown.i-1.j -> Square(i,j,HR)
+
+		-- monkey square up and down moves
+
+		[] mu(i,j) & MUp.i.j -> if (i==1) and (j==0) then done -> STOP else Square(i,j,MBL)
+		[] md(i,j) & MDown.i.j -> if (i==1) and (j==0) then done -> STOP else Square(i,j,MBL)
+		[] mu(i,j-1) & MUp.i.j-1 -> if (i==1) and (j-1==1) then done -> STOP else Square(i,j,MTL)
+		[] md(i,j-1) & MDown.i.j-1 -> if (i==1) and (j-1==1) then done -> STOP else Square(i,j,MTL)
+		[] mu(i-1,j) & MUp.i-1.j -> if (i-1==2) and (j==0) then done -> STOP else Square(i,j,MBR)
+		[] md(i-1,j) & MDown.i-1.j -> if (i-1==2) and (j==0) then done -> STOP else Square(i,j,MBR)
+		[] mu(i-1,j-1) & MUp.i-1.j-1 -> if (i-1==2) and (j-1==1) then done -> STOP else Square(i,j,MTR)
+		[] md(i-1,j-1) & MDown.i-1.j-1 -> if (i-1==2) and (j-1==1) then done -> STOP else Square(i,j,MTR)
+
+-- The behaviour of the one square at co-ordinates (i,j) defined by the following clauses.
+
+Square(i,j,OneSq) = ort(i+1,j) & OneRight.i+1.j -> Square(i,j,Empty)
+		[] ol(i-1,j) & OneLeft.i-1.j -> Square(i,j,Empty)
+		[] ou(i,j+1) & OneUp.i.j+1 -> Square(i,j,Empty)
+		[] od(i,j-1) & OneDown.i.j-1 -> Square(i,j,Empty)
+
+-- The behaviour of the vertical square at co-ordinates (i,j) defined by the following clauses.
+-- The moves of the vertical square can happen in right, left, up and down - four directions
+-- and its state will change into either an empty state or a reversed states.
+
+Square(i,j,VBot) = vr(i+1,j) & VRight.i+1.j -> Square(i,j,Empty)
+		[] vl(i-1,j) & VLeft.i-1.j -> Square(i,j,Empty)
+		[] vu(i,j+1) & VUp.i.j+1 -> Square(i,j,Empty)
+		[] vd(i,j-1) & VDown.i.j-1 -> Square(i,j,VTop)
+
+Square(i,j,VTop) = vr(i+1,j-1) & VRight.i+1.j-1 -> Square(i,j,Empty)
+		[] vl(i-1,j-1) & VLeft.i-1.j-1 -> Square(i,j,Empty)
+		[] vu(i,j+1) & VUp.i.j+1 -> Square(i,j,VBot)
+		[] vd(i,j-1) & VDown.i.j-1 -> Square(i,j,Empty)
+
+-- The behaviour of the horizontal square at co-ordinates (i,j) defined by the following clauses.
+
+Square(i,j,HL) = hr(i+1,j) & HRight.i+1.j -> Square(i,j,Empty)
+		[] hl(i-1,j) & HLeft.i-1.j -> Square(i,j,HR)
+		[] hu(i,j+1) & HUp.i.j+1 -> Square(i,j,Empty)
+		[] hd(i,j-1) & HDown.i.j-1 -> Square(i,j,Empty)
+
+Square(i,j,HR) = hr(i+1,j) & HRight.i+1.j -> Square(i,j,HL)
+		[] hl(i-1,j) & HLeft.i-1.j -> Square(i,j,Empty)
+		[] hu(i,j+1) & HUp.i.j+1 -> Square(i,j,Empty)
+		[] hd(i,j-1) & HDown.i.j-1 -> Square(i,j,Empty)
+
+-- The behaviour of the monkey square at co-ordinates (i,j) defined by the following clauses.
+-- When the monkey square moves to the square {(1,1),(2,1),(1,0),(2,0)}, we signal the done event.
+
+
+
+Square(i,j,MBL) =  mr(i+1,j) & MRight.i+1.j -> Square(i,j,Empty)
+		[] ml(i-1,j) & MLeft.i-1.j -> Square(i,j,MBR)
+		[] mu(i,j+1) & MUp.i.j+1 -> Square(i,j,Empty)
+		[] md(i,j-1) & MDown.i.j-1 -> Square(i,j,MTL)
+
+
+Square(i,j,MBR) =  mr(i+1,j) & MRight.i+1.j -> Square(i,j,MBL)
+		[] ml(i-1,j) & MLeft.i-1.j -> Square(i,j,Empty)
+		[] mu(i-1,j+1) & MUp.i-1.j+1 -> Square(i,j,Empty)
+		[] md(i-1,j-1) & MDown.i-1.j-1 -> Square(i,j,MTR)
+
+Square(i,j,MTL) = mr(i+1,j-1) & MRight.i+1.j-1 -> Square(i,j,Empty)
+		[] ml(i-1,j-1) & MLeft.i-1.j-1 -> Square(i,j,MTR)
+		[] mu(i,j+1) & MUp.i.j+1 -> Square(i,j,MBL)
+		[] md(i,j-1) & MDown.i.j-1 -> Square(i,j,Empty)
+
+Square(i,j,MTR) = mr(i+1,j-1) & MRight.i+1.j-1 -> Square(i,j,MTL)
+		[] ml(i-1,j-1) & MLeft.i-1.j-1 -> Square(i,j,Empty)
+		[] mu(i-1,j+1) & MUp.i-1.j+1 -> Square(i,j,MBR)
+		[] md(i-1,j-1) & MDown.i-1.j-1 -> Square(i,j,Empty)
+
+-- Reverse the board as the co-ordinate system we used starts the origin (0,0)
+-- at the bottom left-hand corner with co-ordinate (0,4) at the top left-hand corner
+-- and co-ordinate(3,4) at the bottom right-hand corner
+
+nth(n,xs) = if n==0 then head(xs)
+                    else nth(n-1,tail(xs))
+
+init(i,j) = nth(i,nth(Ht-1-j,Board))
+
+BoardCoords = {(i,j) | i <- {0..Wd-1}, j <- {0..Ht-1}}
+
+-- each square has to one of the 10 states to participate in
+
+BoardSquare(i,j) = if init(i,j) == Empty then Square(i,j,Empty)
+                              else (init(i,j) == OneSq) & Square(i,j,OneSq)
+				  [] (init(i,j) == VBot) & Square(i,j,VBot)
+				  [] (init(i,j) == VTop) & Square(i,j,VTop)
+				  [] (init(i,j) == HL) & Square(i,j,HL)
+				  [] (init(i,j) == HR) & Square(i,j,HR)
+				  [] (init(i,j) == MBL) & Square(i,j,MBL)
+				  [] (init(i,j) == MBR) & Square(i,j,MBR)
+				  [] (init(i,j) == MTL) & Square(i,j,MTL)
+				  [] (init(i,j) == MTR) & Square(i,j,MTR)
+
+-- Union all the possible moves for each square
+
+Alpha(i,j) = Union({{done},
+                    {OneRight.i.j},
+                    {OneLeft.i.j},
+                    {OneUp.i.j},
+                    {OneDown.i.j},
+                    {OneRight.i+1.j | i <- {0..Wd-2}},
+                    {OneLeft.i-1.j  | i <- {1..Wd-1}},
+                    {OneUp.i.j+1    | j <- {0..Ht-2}},
+                    {OneDown.i.j-1  | j <- {1..Ht-1}},
+                    {VLeft.i.j},
+                    {VRight.i.j},
+                    {VUp.i.j},
+                    {VDown.i.j},
+                    {VLeft.i.j-1    | j <- {1..Ht-1}},
+                    {VRight.i.j-1   | j <- {1..Ht-1}},
+                    {VUp.i.j-1      | j <- {1..Ht-1}},
+                    {VDown.i.j-1    | j <- {1..Ht-1}},
+                    {VRight.i+1.j   | i <- {0..Wd-2}},
+                    {VLeft.i-1.j    | i <- {1..Wd -1}},
+                    {VUp.i.j+1      | j <- {0..Ht-2}},
+                    {VRight.i+1.j-1 | i <- {0..Wd-2}, j <- {1..Ht-1}},
+                    {VLeft.i-1.j-1  | i <- {1..Wd-1}, j <- {1..Ht-1}},
+                    {HLeft.i.j},
+                    {HRight.i.j},
+                    {HLeft.i-1.j    | i <- {1..Wd-1}},
+                    {HRight.i-1.j   | i <- {1..Wd-1}},
+                    {HUp.i.j},
+                    {HDown.i.j},
+                    {HUp.i-1.j      | i <- {1..Wd-1}},
+                    {HDown.i-1.j    | i <- {1..Wd-1}},
+                    {HRight.i+1.j   | i <- {0..Wd-2}},
+                    {HLeft.i-1.j    | i <- {1..Wd-1}},
+                    {HUp.i.j+1      | j <- {0..Ht-2}},
+                    {HDown.i.j-1    | j <- {1..Ht-1}},
+                    {MRight.i.j},
+                    {MLeft.i.j},
+                    {MUp.i.j},
+                    {MDown.i.j},
+                    {MLeft.i.j-1   | j <- {1..Ht-1}},
+                    {MRight.i.j-1  | j <- {1..Ht-1}},
+                    {MLeft.i-1.j   | i <- {1..Wd-1}},
+                    {MRight.i-1.j  | i <- {1..Wd-1}},
+                    {MLeft.i-1.j-1 | i <- {1..Wd-1}, j <- {1..Ht-1}},
+                    {MRight.i-1.j-1 | i <- {1..Wd-1}, j <- {1..Ht-1}},
+                    {MUp.i.j-1     | j <- {1..Ht-1}},
+                    {MDown.i.j-1   | j <- {1..Ht-1}},
+                    {MUp.i-1.j     | i <- {1..Wd-1}},
+                    {MDown.i-1.j   | i <- {1..Wd-1}},
+                    {MUp.i-1.j-1   | i <- {1..Wd-1}, j <- {1..Ht-1}},
+                    {MDown.i-1.j-1 | i <- {1..Wd-1}, j <- {1..Ht-1}},
+                    {MRight.i+1.j  | i <- {0..Wd-2}},
+                    {MLeft.i-1.j   | i <- {1..Wd-1}},
+                    {MUp.i.j+1     | j <- {0..Ht-2}},
+                    {MDown.i.j-1   | j <- {1..Ht-1}},
+                    {MRight.i+1.j-1 | i <- {0..Wd-2}, j <- {1..Ht-1}},
+                    {MUp.i-1.j+1   | i <- {1..Wd-1}, j <- {0..Ht-2}},
+                    {MUp.i.j+1     | j <- {0..Ht-2}}
+                    })
+
+-- The Puzzle process shown in the probe with an empty trace
+-- The problem is might caused by the way to define Alpha is incorrect. 
+
+Puzzle = || (i,j):BoardCoords @ [Alpha(i,j)] BoardSquare(i,j)
+
+assert STOP [T= Puzzle \ Sigma

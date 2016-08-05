@@ -1,0 +1,152 @@
+--Liang Lin
+
+FLOOR = {0,1}
+
+datatype PERSON = lou | john | mo
+
+channel enterLift, exitLift : FLOOR . PERSON
+
+channel enterBuilding, exitBuilding : PERSON
+
+channel call : FLOOR . PERSON
+
+Floor(f) =
+  let
+    Holding(P) =
+         call!f?p -> Holding(P)
+         []
+         enterLift!f?p:P -> Holding(diff(P,{p}))
+         []
+         exitLift?f:FLOOR?p:{lou,john,mo} -> Holding(union(P,{p}))
+	 []
+	 ((f == 0) & (enterBuilding?p:{lou,john,mo} -> Holding(union(P,{p})))
+                     []
+                     (exitBuilding?p:P -> Holding(diff(P,{p}))))
+  within
+       Holding({})
+
+Floors = ||| f : FLOOR @ Floor(f)
+
+channel request : FLOOR . PERSON
+
+LiftCar =
+  let
+   Holding(P) =
+     enterLift?f:FLOOR?p:{lou,john,mo} -> Holding(union(P,{p}))
+     []
+     exitLift?f:FLOOR?p:P -> Holding(diff(P,{p}))
+     []
+     request?f:FLOOR?p:P -> Holding(P)
+  within
+   Holding({})
+
+channel goto : FLOOR
+
+LiftFloor =
+  let
+    State(f) =
+      enterLift!f?p:{lou,john,mo} -> State(f)
+      []
+      exitLift!f?p:{lou,john,mo} -> State(f)
+      []
+      goto?r:FLOOR -> State(r)
+  within
+    State(0)
+
+channel open, close
+
+LiftDoors =
+  let
+    Open =
+	exitLift?f:FLOOR?p:{lou,john,mo}  -> Open
+	[]
+	enterLift?f:FLOOR?p:{lou,john,mo}  -> Open
+	[]
+	close -> Closed
+
+    Closed = open -> Open
+  within
+    Open
+
+Controller =
+  let
+    Queue(r) =
+      ((r != <>) & (goto!head(r) -> Queue(tail(r))))
+      []
+      ((length(r) <= 2) &  (request?f:FLOOR?p:{lou,john,mo} -> Queue(r^<f>)
+         		   []
+         		   (call?f:FLOOR?p:{lou,john,mo} -> Queue(r^<f>))))
+  within
+    Queue(<>)
+
+Building = (((LiftCar [| {| enterLift, exitLift |} |] LiftFloor)
+  	   [| {| enterLift, exitLift |} |]
+           LiftDoors)
+	   [| {| request, call, goto |} |]
+	   Controller)
+	   [| {| enterLift, exitLift, call |} |]
+	   Floors
+
+t1 = <enterBuilding.lou, enterLift.0.lou, request.1.lou, close, goto.1, open, exitLift.1.lou>
+
+Trace(t) =
+  if null(t) then STOP else head(t) -> Trace(tail(t))
+
+assert Building [T= Trace(t1)
+
+t2 = <enterBuilding.lou, request.1.lou, exitLift.1.lou>
+
+FloorConstraint = enterBuilding?p:{lou,john,mo} -> FloorConstraint
+		  []
+		  request?f:FLOOR?p:{lou,john,mo} -> FloorConstraint
+		  []
+		  exitLift?f:FLOOR?p:{lou,john,mo} -> FloorConstraint
+
+BuildingConstraint = FloorConstraint [| {|enterBuilding, request, exitLift |} |] Building
+
+assert BuildingConstraint [T= Trace(t2)
+
+channel authorise, deauthorise : PERSON
+
+Secure =
+  let
+    Authorised(P) =
+      exitLift.1?p:P -> Authorised(P)
+      []
+      authorise?p:{lou,john,mo} -> Authorised(union(P,{p}))
+      []
+      deauthorise?p:{lou,john,mo} -> Authorised(diff(P,{p}))
+  within
+    Authorised({})
+
+SecureBuilding = Secure [| {| exitLift.1.p | p <- {lou,john,mo} |} |] Building
+
+assert SecureBuilding [T= Building
+
+datatype ANSWER = yes | no
+
+channel authorised : PERSON . ANSWER
+
+Authority =
+  let
+    Authorised(P) =
+      authorised?p:P!yes -> Authorised(P)
+      []
+      authorised?p:diff({lou,john,mo},P)!no -> Authorised(P)
+      []
+      authorise?p -> Authorised(union(P,{p}))
+      []
+      deauthorise?p -> Authorised(diff(P,{p}))
+  within
+    Authorised({})
+
+Controller' =
+  let
+    Queue(r) =
+      ((r != <>) & (goto!head(r) -> Queue(tail(r))))
+      []
+      ((length(r) <= 2) & (request?f:FLOOR?p:{lou,john,mo} -> Queue(r^<f>)
+         		  []
+         		  (call?f:FLOOR?p:{lou,john,mo} -> Queue(r^<f>))))
+  within
+    Queue(<>)

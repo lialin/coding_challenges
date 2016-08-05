@@ -1,0 +1,20 @@
+A railway network with five trains (at the top) and five sheds (at the bottom). The objective is to get the trains into their own sheds as efficiently as possible. The obvious rules of shunting apply; trains can only come to rest in sheds or at the ends of the lines, and there is only room for one train at a time at any one of these. The tag of each end of line is the same as for the shed below it.
+
+
+         E        D        C        B        A
+	 |        |        |        |        |
+	 |        |        |        |        |
+	 |        |       /|       /|        |
+	 |\       |      / |      / |\      /|
+	 | \      |     /  |     /  | \    / |
+	 |  \     |    /   |    /   |  \  /  |
+	 |   \    |   /    |   /    |   \/   |
+	 |    \  ____/   __|__/     |   /\   |
+	 |     \/ |     /  |      __|__/  \  |
+	 |     /\ |    /   |     /  |      \ |
+	 |    /  \|   /    |    /   |       \|
+	 |   /    |  /     |   /    |        |
+	 |  /     | /      |  /     |        |
+	 | /      |/       | /      |        |
+	 |/       |        |/       |        |
+	 A        B        C        D        E

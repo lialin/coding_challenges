@@ -1,0 +1,37 @@
+datatype labels = A | B | C | D | E
+channel forward, back: labels.labels.labels
+channel done
+
+-- The set determines the line network linkage
+LinkedLines = {(A,A), (B,B), (C,C),(D,D),(E,E),(A,B),(C,A),(D,B),(D,E),(E,C)}
+
+-- the set defines the inital position of the trains
+TrainInitPos = {(A,E),(B,D),(C,C),(D,B),(E,A)}
+
+-- And the following table shows the initial positions of the trains.
+InitTrain(X) = let singel({Y}) = Y
+                   Z = {Y | (X',Y) <- TrainInitPos, X'==X}
+	       within singel(Z)
+
+-- define the line constraint so that the train can
+-- only move back and forward in the given lines
+LineConstraint = [] (X,Y) : LinkedLines @ (back!X!Y?Z -> LineConstraint  [] 
+				      	   forward!Y!X?Z -> LineConstraint)
+
+-- The shed has two states, empty and occupied states
+EmptyShed(Y) = back?X!Y?Z -> OccupiedShed(Y, Z)
+OccupiedShed(Y,Z) =  if Y == Z then done -> STOP else forward!Y?X!Z -> EmptyShed(Y)
+
+AlphaShed(Y) = {| done, back.X.Y, forward.Y.X |  X <- labels |}
+Shed = || Y : labels @ [AlphaShed(Y)] EmptyShed(Y)
+
+-- The end of Line also has two states, empty and occupied states
+OccupiedEndLine(X,Z) = back!X?Y!Z -> EmptyEndLine(X)
+EmptyEndLine(X) = forward?Y!X?Z -> OccupiedEndLine(X,Z)
+
+AlphaEndLine(X) = {| back.X.Y, forward.Y.X | Y <- labels |}
+EndLine = || X : labels @ [AlphaEndLine(X)] OccupiedEndLine(X, InitTrain(X))
+
+-- Parallel the overall network
+NetworkAlpha = {|forward, back|}
+Network = (Shed [| NetworkAlpha |] EndLine) [| NetworkAlpha |] LineConstraint
