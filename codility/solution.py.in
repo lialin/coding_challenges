@@ -1,0 +1,7 @@
+# Author: %AUTHOR%
+# Email: %EMAIL%
+# Date: %DATE%
+class Solution:
+  def solution(self, A):
+  pass
+  

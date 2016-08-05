@@ -1,0 +1,10 @@
+/**
+ * Author: %AUTHOR%
+ * Email: %EMAIL%
+ * Date: %DATE%
+ */
+Class Solution {
+    public int solution(int[] A) {
+
+    }
+}
