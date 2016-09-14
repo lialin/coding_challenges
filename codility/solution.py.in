@@ -2,6 +2,5 @@
 # Email: %EMAIL%
 # Date: %DATE%
 class Solution:
-  def solution(self, A):
-  pass
-  
+    def solution(self, A):
+    pass
