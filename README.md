@@ -19,6 +19,7 @@ codility 100% solutions in `.py & .java`
 * [PermCheck](https://github.com/lialin/coding_challenges/tree/master/codility/PermCheck)
 * [PermMissingElem](https://github.com/lialin/coding_challenges/tree/master/codility/PermMissingElem)
 * [TapeEquilibrium](https://github.com/lialin/coding_challenges/tree/master/codility/TapeEquilibrium)
+* [CountDiv](https://github.com/lialin/coding_challenges/tree/master/codility/CountDiv)
 
 ------
 
