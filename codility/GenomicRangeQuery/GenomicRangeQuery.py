@@ -3,12 +3,6 @@
 # Date: 2016-09-17
 
 def solution(S, P, Q):
-
-# you can write to stdout for debugging purposes, e.g.
-# print "this is a debug message"
-
-def solution(S, P, Q):
-    
     # length of P
     pl = len(P)
 
@@ -47,5 +41,3 @@ def typeToFactor(type):
         'G' : 2,
         'T' : 3
     }[type]
-
-solution("AAGGCTTT", [0,2,5], [2,4,7]);
